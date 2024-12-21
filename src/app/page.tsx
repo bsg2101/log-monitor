@@ -1,5 +1,5 @@
-import LogMonitoring from '@/components/log-monitoring';
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <LogMonitoring />;
+  redirect('/auth/login')
 }

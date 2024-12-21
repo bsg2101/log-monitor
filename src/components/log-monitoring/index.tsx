@@ -1,15 +1,19 @@
 "use client"
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 import { Toast, useToast } from "@/components/ui/toast";
-import { Login } from './login';
 import { LogEntry } from './types';
-import { logService } from '../../app/services/logService';
+import { logService } from '@/app/services/logService';
+
+interface LogMonitoringProps {
+  onLogout: () => void;
+}
 
 // Log seviye badge bileşeni
 type LogLevel = 'Information' | 'Error' | 'Critical' | 'Warning';
@@ -65,9 +69,8 @@ const LogDetail = ({ log }: { log: LogEntry }) => (
     </div>
 );
 
-const LogMonitoring = () => {
-    // State tanımlamaları
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+const LogMonitoring: React.FC<LogMonitoringProps> = ({ onLogout }) => {
+    const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
     const [logLevel, setLogLevel] = useState('all');
     const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -86,51 +89,46 @@ const LogMonitoring = () => {
     // Logları getir
     const fetchLogs = async () => {
         try {
-          setLoading(true);
-          const response = await logService.getLogs({
-            level: logLevel === 'all' ? undefined : logLevel,
-            search: searchTerm || undefined,
-            page: pagination.currentPage,
-            pageSize: pagination.pageSize
-          });
-          setLogs(response.data);
-          setPagination(response.pagination);
-          setLoading(false);
-        } catch (_) { // error yerine _ kullanarak unused variable hatasını gideriyoruz
-          showToast('Loglar yüklenirken bir hata oluştu.', 'error');
-          setLoading(false);
+            setLoading(true);
+            const response = await logService.getLogs({
+                level: logLevel === 'all' ? undefined : logLevel,
+                search: searchTerm || undefined,
+                page: pagination.currentPage,
+                pageSize: pagination.pageSize
+            });
+            setLogs(response.data);
+            setPagination(response.pagination);
+        } catch (error) {
+            showToast('Loglar yüklenirken bir hata oluştu.', 'error');
+        } finally {
+            setLoading(false);
         }
-      };
+    };
 
-  // logları temizleme fonksiyonunu düzeltme
-const handleClearLogs = async () => {
-    if (deletePassword !== 'Gama123!') {
-      showToast('Hatalı şifre!', 'error');
-      return;
-    }
-  
-    try {
-      const result = await logService.clearLogs({
-        level: logLevel !== 'all' ? logLevel : undefined
-      });
-      showToast(`${result.deletedCount} log kaydı silindi.`, 'success');
-      setIsDeleteModalOpen(false);
-      setDeletePassword('');
-      fetchLogs();
-    } catch (_) { // error yerine _ kullanarak unused variable hatasını gideriyoruz
-      showToast('Loglar silinirken bir hata oluştu.', 'error');
-    }
-  };
+    // Logları temizle
+    const handleClearLogs = async () => {
+        if (deletePassword !== 'Gama123!') {
+            showToast('Hatalı şifre!', 'error');
+            return;
+        }
+
+        try {
+            const result = await logService.clearLogs({
+                level: logLevel !== 'all' ? logLevel : undefined
+            });
+            showToast(`${result.deletedCount} log kaydı silindi.`, 'success');
+            setIsDeleteModalOpen(false);
+            setDeletePassword('');
+            fetchLogs();
+        } catch (error) {
+            showToast('Loglar silinirken bir hata oluştu.', 'error');
+        }
+    };
+
     // Log değişikliklerini izle
     useEffect(() => {
-        if (isLoggedIn) {
-          fetchLogs();
-        }
-      }, [isLoggedIn, logLevel, searchTerm, pagination.currentPage, fetchLogs]); // fetchLogs'u dependency array'e ekledik
-
-    if (!isLoggedIn) {
-        return <Login onLogin={setIsLoggedIn} />;
-    }
+        fetchLogs();
+    }, [logLevel, searchTerm, pagination.currentPage]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-8">
@@ -138,7 +136,7 @@ const handleClearLogs = async () => {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Log İzleme Paneli</CardTitle>
-                        <Button onClick={() => setIsLoggedIn(false)} variant="outline">
+                        <Button onClick={onLogout} variant="outline">
                             Çıkış Yap
                         </Button>
                     </div>
